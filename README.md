@@ -1,4 +1,4 @@
-# Sampling Simulator Brown Bear
+# Sampling Simulator Brown Bicorn
 
 Este archivo tiene como objetivo convertise en el MVP. Cumpliendo las siguientes funciones:
 - Simular una única variable escondida por unidad (hogar).
@@ -6,7 +6,6 @@ Este archivo tiene como objetivo convertise en el MVP. Cumpliendo las siguientes
 - Simular una población de N hogares.
 - Tomar una muestra al azar de n hogares.
 - Estimar el total de ingresos.
-- Repetir la simulación K veces.
-- Graficar el resultado en un histograma.
-- Subir a github en una página interactiva.
+- Subir a github.
+- Desplegar como una página interactiva.
 

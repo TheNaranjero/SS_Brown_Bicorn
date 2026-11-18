@@ -23,12 +23,12 @@ ui <- navbarPage(
         inputId = "cantidad_hogares",
         label = "Cantidad de hogares",
         min = 100000,
-        max = 10000000,
+        max = 1000000,
         step = 100000,
         value = 1000000
       ),
       p("LOS SIGUIENTES NO HACEN NADA:"),
-      sliderInput(
+      numericInput(
         inputId = "habitantes_hogar",
         label = "Cantidad de personas por hogar (promedio)",
         min = 1,
@@ -36,7 +36,7 @@ ui <- navbarPage(
         step = 0.5,
         value = 2.5
       ),
-      sliderInput(
+      numericInput(
         inputId = "cantidad_provincias",
         label = "Cantidad de provincias",
         min = 1,
@@ -45,6 +45,29 @@ ui <- navbarPage(
         value = 10
       )
     ),
+    br(),
+    wellPanel(
+      h4("No respuesta"),
+      fluidRow(
+        column(
+          width = 3,
+          radioButtons(
+            inputId = "tasa_no_respuesta",
+            label = "Tasa de no respuesta",
+            choices = c("Muy baja" =  0.05, "Baja" = 0.10, "Moderada" = 0.20, "Alta" = 0.35, "Muy alta" = 0.50, "Extrema" = 0.75)
+          )
+        ),
+        column(
+          width = 3,
+          radioButtons(
+            inputId = "tipo_no_respuesta",
+            label = "Tipo de no respuesta",
+            choices = c("Completamente al azar (MCAR)" = "MCAR")
+          )
+        )
+      )
+    ),
+    br(),
     p("LOS SIGUIENTES NO HACEN NADA:"),
 
     wellPanel(
@@ -137,12 +160,7 @@ ui <- navbarPage(
     "País",
     h2("Resumen del país"),
     hr(),
-    p("aquí habría un mapa...SI TUVIERA UNO!!"),
-    mainPanel(
-      width = 3,
-      h3("Resumen"),
-      textOutput("resumen")
-    )
+    plotOutput("mapa", height = "600px", width = "600px")
   ),
 
   tabPanel(
@@ -163,7 +181,15 @@ ui <- navbarPage(
           numericInput(
             inputId = "tamano_muestral",
             label = "Tamaño muestral",
-            min = 10, max = 10000000, step = 10, value = 1000
+            min = 10, max = 1000000, step = 10, value = 1000
+          )
+        ),
+        column(
+          width = 3,
+          selectInput(
+            inputId = "tipo_ajuste_no_respuesta",
+            label = "Ajustar por no respuesta",
+            choices = c("Completamente al azar (MCAR)" = "MCAR")
           )
         )
       )
@@ -171,15 +197,18 @@ ui <- navbarPage(
     actionButton(
       inputId = "tomar_muestra",
       label = "Tomar Muestra"
+    ),
+    wellPanel(
+      title = "Resultados de la simulación",
+      h3("Resultados de la muestra"),
+      textOutput("resultado_estimador"),
+      textOutput("resultado_error"),
+      textOutput("resultado_respuesta")
     )
+
   ),
 
-  tabPanel(
-    "Resultados",
-    h2("Resultados de la simulación"),
-    textOutput("resultado_estimador"),
-    textOutput("resultado_error")
-  )
+  
 )
 
 # 2. Lógica
@@ -193,8 +222,11 @@ server <- function(input, output, session) {
   observeEvent(input$genera_poblacion, {
     print("¡Generando población!")
 
+    tasa_no_respuesta = as.numeric(input$tasa_no_respuesta)
+
     poblacion <- generar_poblacion(N = input$cantidad_hogares) |>
-      crea_variables()
+      crea_variables() |> 
+      asignar_no_respuesta(tipo_no_respuesta = input$tipo_no_respuesta, tasa_no_respuesta = tasa_no_respuesta )
 
     pob(poblacion)
     print(head(pob()))
@@ -207,16 +239,21 @@ server <- function(input, output, session) {
 
     n    <- input$tamano_muestral
     tipo <- input$tipo_muestreo
+    ajuste_no_respuesta <- input$tipo_ajuste_no_respuesta
 
     muestra <- pob() |>
       asignar_probabilidad_de_seleccion(n = n, tipo = tipo) |>
-      seleccionar_muestra(n = n, tipo = tipo)
+      seleccionar_muestra(n = n, tipo = tipo) |>
+      ajustar_no_respuesta(tipo = tipo, tipo_ajuste = ajuste_no_respuesta)
 
     total <- muestra |> estimar_total(tipo = tipo)
     real  <- pob() |> pull("Ingresos") |> sum()
+    respondentes = muestra$Responde |> sum()
 
     resultados$total_millones <- round(total / 1000000, 0)
     resultados$error          <- round((total - real) / real * 100, 2)
+    resultados$pct_respuesta   <- round((respondentes) / n * 100, 2)
+
 
     print(head(muestra))
     print(total)
@@ -236,6 +273,24 @@ server <- function(input, output, session) {
     req(resultados$error)
     paste0("Error: ", resultados$error, "%")
   })
+
+  output$resultado_respuesta <- renderText({
+    req(resultados$pct_respuesta)
+    paste0("Tasa de respuesta: ", resultados$pct_respuesta, "%")
+  })
+
+  ## Generacion del mapa
+    eventReactive(input$generar_poblacion, {
+
+    mapa = genera_mapa(
+      n = 100, n_ciudades = 5, amp = 10,
+    )
+
+    output$mapa = renderPlot({
+      dibuja_mapa(mapa)
+    })
+  })
+
 }
 
 # 3. Aplicación

@@ -280,16 +280,18 @@ server <- function(input, output, session) {
   })
 
   ## Generacion del mapa
-    eventReactive(input$generar_poblacion, {
+    mapa = eventReactive(input$genera_poblacion, {
 
-    mapa = genera_mapa(
-      n = 100, n_ciudades = 5, amp = 10,
-    )
+      genera_mapa(
+        n = 100, n_ciudades = 5, amp = 10,
+      )
+    })
+
 
     output$mapa = renderPlot({
-      dibuja_mapa(mapa)
+      dibuja_mapa(mapa())
     })
-  })
+  
 
 }
 

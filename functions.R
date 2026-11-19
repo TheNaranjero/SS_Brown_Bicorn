@@ -222,7 +222,7 @@ estimar_total = function(matriz, tipo = "MSA"){
 
 
 
-  total =sum( matriz$Ingresos * matriz$Responde * matriz$Ajuste_no_respuesta / matriz$Prob_seleccion  )
+  total =sum( 1/MILLON *  matriz$Ingresos * matriz$Responde * matriz$Ajuste_no_respuesta / matriz$Prob_seleccion * MILLON  )
   return(total)
 }
 
@@ -269,7 +269,7 @@ genera_mapa = function(n = 100, n_ciudades = 10, semilla = NULL, amp = 10,
     tipos      = c(N =sample[1], E = sample[2], S = sample[3], O = sample[4])
   }
   if(is.null(sinuosidad)){
-    sample = sample(c(0, 0.1, 0.5, 1, 1, 1), size = 4 , replace =TRUE)
+    sample = sample(c(0, 0.3, 0.5, 1,1,1,1, 1, 1), size = 4 , replace =FALSE)
     sinuosidad      = c(N =sample[1], E = sample[2], S = sample[3], O = sample[4])
   }
 

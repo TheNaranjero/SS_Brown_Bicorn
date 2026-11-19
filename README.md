@@ -13,11 +13,13 @@ Este archivo tiene como objetivo convertise en el MVP. Cumpliendo las siguientes
 - Desplegar como una página interactiva.
 
 ##  Version 2
-En esta version el objetivo es:
-- Añadir no respuesta (solo MCAR).
+Se añadieron:
+- No respuesta (solo MCAR).
 - Dar la opción de corregir por no respuesta (solo MCAR).
-- Generar un mapa simple, marcando megametropolis, metropolis y grandes ciudades.
-- Optimizar el uso de la RAM:
-  -  Uso de numeros enteros en lugar de doubles.
-  -  Descartar variables escondidas.
+- Generar un mapa simple, solamente decorativo.
 - Mostrar Muestreo y Resultados en la misma pestaña.
+- Optimizar el uso de la RAM:
+  - Uso de numeros enteros en lugar de doubles.
+  - Descartar variables escondidas.
+  - Reducir el máximo de hogares de 10,000,000 a 1,000,000
+  Todo ello permitió pasar de 480 MB a 20MB de consumo en RAM.

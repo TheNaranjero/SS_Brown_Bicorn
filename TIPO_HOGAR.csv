@@ -1,0 +1,24 @@
+nombre,ninos,adultos,mayores,jefe_adulto
+Solo adultos,0,1,0,1
+Adultos con algun niño,0.10,0.90,0,1
+Adultos con pocos niños,0.20,0.80,0,1
+Adultos con niños,0.35,0.65,0,1
+Adultos y niños parejos,0.50,0.50,0,1
+Adultos con muchos niños,0.65,0.35,0,1
+Adulto con varios niños,0.80,0.20,0,1
+Adulto con casi solo niños,0.90,0.10,0,1
+Muchos niños y un mayor,0.80,0.10,0.10,1
+Muchos niños con adultos y mayores,0.60,0.20,0.20,0.9
+Tres generaciones,0.40,0.30,0.30,0.8
+Tres generaciones con mas mayores,0.35,0.15,0.50,0.4
+Abuelos con nietos y algun adulto,0.30,0.05,0.65,0.15
+Abuelos y nietos,0.15,0.05,0.80,0.1
+Solo mayores,0,0,1,0
+Mayores con algun adulto,0,0.10,0.90,0.05
+Mayores con pocos adultos,0,0.20,0.80,0.1
+Mayores con adultos,0,0.35,0.65,0.3
+Adultos y mayores parejos,0,0.50,0.50,0.5
+Adultos con mayores,0,0.65,0.35,0.7
+Adultos con pocos mayores,0,0.80,0.20,0.85
+Adultos con algun mayor,0,0.90,0.10,0.95
+Adultos con un mayor ocasional,0,0.95,0.05,1

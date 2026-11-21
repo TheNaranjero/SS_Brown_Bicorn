@@ -203,7 +203,10 @@ ui <- navbarPage(
       h3("Resultados de la muestra"),
       textOutput("resultado_estimador"),
       textOutput("resultado_error"),
-      textOutput("resultado_respuesta")
+      textOutput("resultado_respuesta"),
+      textOutput("resultado_personas_por_hogar")
+
+      
     )
 
   ),
@@ -225,6 +228,7 @@ server <- function(input, output, session) {
     tasa_no_respuesta = as.numeric(input$tasa_no_respuesta)
 
     poblacion <- generar_poblacion(N = input$cantidad_hogares) |>
+      asigna_provincias(n_provincias = 5) |>
       crea_variables() |> 
       asignar_no_respuesta(tipo_no_respuesta = input$tipo_no_respuesta, tasa_no_respuesta = tasa_no_respuesta )
 
@@ -249,10 +253,19 @@ server <- function(input, output, session) {
     total <- muestra |> estimar_total(tipo = tipo)
     real  <- pob() |> pull("Ingresos") |> sum()
     respondentes = muestra$Responde |> sum()
+    Edad_0_14  = muestra$Edad_0_14  |> sum()
+    Edad_15_64  = muestra$Edad_15_64  |> sum()
+    Edad_65_99  = muestra$Edad_65_99  |> sum()
+    personas_por_hogar = (Edad_0_14+Edad_15_64+Edad_65_99) / respondentes
 
-    resultados$total_millones <- round(total / 1000000, 0)
+
+
+    resultados$total_millones <- round(total / 1e3, 0)
     resultados$error          <- round((total - real) / real * 100, 2)
     resultados$pct_respuesta   <- round((respondentes) / n * 100, 2)
+    resultados$personas_por_hogar   <- round((personas_por_hogar), 2)
+
+
 
 
     print(head(muestra))
@@ -279,17 +292,22 @@ server <- function(input, output, session) {
     paste0("Tasa de respuesta: ", resultados$pct_respuesta, "%")
   })
 
+  output$resultado_personas_por_hogar <- renderText({
+    req(resultados$personas_por_hogar)
+    paste0("Personas porhogar: ", resultados$personas_por_hogar)
+  })
   ## Generacion del mapa
     mapa = eventReactive(input$genera_poblacion, {
 
       genera_mapa(
         n = 100, n_ciudades = 5, amp = 10,
-      )
+      ) |> 
+        genera_provincias(n_provincias=105)
     })
 
 
     output$mapa = renderPlot({
-      dibuja_mapa(mapa())
+      dibuja_mapa_completo(mapa())
     })
   
 

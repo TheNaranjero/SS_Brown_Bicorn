@@ -23,3 +23,28 @@ Se añadieron:
   - Descartar variables escondidas.
   - Reducir el máximo de hogares de 10,000,000 a 1,000,000
   Todo ello permitió pasar de 480 MB a 20MB de consumo en RAM.
+
+
+  
+##  Version 3
+Añadir:
+- Provincias
+- Variables escondidas representando el efecto provincia.
+- Personas por edad 
+- Calibracion
+
+# Sobre las variables ocultas
+
+var_hidden_1 : asociada principalmente al percentil del ingreso
+var_hidden_2 : asociada al tipo de hogar según la cantidad de adultos.
+
+
+# Variables manifestas:
+
+Ingresos: qexp( var_hidden_1, rate = 1 / MEDIA_INGRESOS  )
+
+en base a var_hidden_2 se definen el tipo de hogar, representado por la cantidad de niños, adultos jovenes, adultos mayores y jubilados.
+
+# Constantes
+
+MEDIA_INGRESOS = Media de ingresos nacional por hogar, estimada con la EPH.

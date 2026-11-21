@@ -254,5 +254,5 @@ dibuja_mapa = function(mapa){
   points(mapa$ciudades[, 1], mapa$ciudades[, 2], pch = 19, col = "black", cex = 1.5)
 }
 
-mapa = genera_mapa( )
+mapa = genera_mapa( ) |> dibuja_provincias()
 dibuja_mapa(mapa)

@@ -32,6 +32,8 @@ Añadir:
 - Variables escondidas representando el efecto provincia.
 - Personas por edad 
 - Calibracion
+- Separado las funciones en modulos
+
 
 # Sobre las variables ocultas
 

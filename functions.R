@@ -1,5 +1,7 @@
 library(dplyr)
 library(data.table)
+library(survey)
+
 
 #+ Valores por defecto
 N_POR_DEFECTO = 1000
@@ -304,73 +306,52 @@ ajustar_no_respuesta = function(matriz, tipo = "MSA", tipo_ajuste = 'MCAR'){
   return(matriz)}
 
 
-
-calibrar = function( muestra, poblacion, edad=TRUE, tipo="MSA"){
-  # Calcula los totales conocidos de la poblacion, calibra los pesos para ajustar a esos totales.
+calibrar = function(muestra, poblacion, edad = TRUE, tipo = "MSA"){
+  # Calibra los pesos de la muestra a totales conocidos de la población.
+  # Añade a `muestra` (por referencia) la columna peso_calibrado
+  # (0 para los no respondentes).
   # Inputs:
-  # muestra -- la muestra obtenida a calibrar.
-  # poblacion -- la poblacion
-  # edad -- booleano calibra por grupo de edad (0 a 14 años, 15 a 64 años, 65 o más años)
-  # sexo -- (sin aplicar) booleano calibra por sexo (femenino, masculion, otro)
-  # tipo -- tipo de muestreo utilizado, por ahora solo MSA, dentro de poco Estratificado
+  #   muestra   -- muestra a calibrar (con Responde, Ajuste_no_respuesta, Prob_seleccion)
+  #   poblacion -- población (con Habitantes_0_14, Habitantes_15_64, Habitantes_65_99)
+  #   edad      -- si TRUE, calibra también por grupo de edad
+  #   tipo      -- tipo de muestreo; por ahora solo "MSA"
+
+  if (tipo == "MSA"){
+     # solo los respondentes entran en la calibración
+  es_resp = as.logical(muestra$Responde)
+  resp    = muestra[es_resp]
+  resp[, peso_base := Ajuste_no_respuesta / Prob_seleccion]
+  resp[, uno := 1]                       # para que los pesos sumen N
+
+  # totales conocidos: N y, opcionalmente, habitantes por grupo de edad
+  vars    = if (edad) c("Edad_0_14", "Edad_15_64", "Edad_65_99") else character(0)
+  totales = c(uno = nrow(poblacion), colSums(poblacion[, ..vars]))
+
+  formula = reformulate(c("uno", vars), intercept = FALSE)   # ~ 0 + uno + ...
+
+  diseno = survey::svydesign(ids = ~1, weights = ~peso_base, data = resp)
+
+  cal = survey::calibrate(
+    diseno,
+    formula    = formula,
+    population = totales,       # los nombres deben coincidir con los de la fórmula
+    calfun     = "linear",
+    bounds     = c(0.1, Inf)    # factor de ajuste g = peso_calibrado / peso_base
+  )
+
+  muestra[, peso_calibrado := 0]
+  muestra[es_resp, peso_calibrado := weights(cal)]
+}
 
 
-  total_0_14 = sum(poblacion[,Habitantes_0_14])
-  total_15_64 = sum(poblacion[,Habitantes_15_64])
-  total_65_99 = sum(poblacion[,Habitantes_65_99])
-
-  pesos_0_14  = rep(1, times=N)
-  pesos_15_64 = rep(1, times=N)
-  pesos_64_99 = rep(1, times=N)
-
-  # funcion a minimizar
-  # el menor cambio posible a los pesos, penalizando mucho las grandes diferencias
-  quad_diff = function(p1, p2, p3){
-    return( sum( (p1 - 1)^2 + (p2 -1)^2 + (p3-1)^2 )  )
-  }
-
-  # Igualdades a mantener
-
-  eq = function(p1, p2, p3){
-   return(c(
-    sum(p1) -  length(p1),
-    sum(p2) -  length(p2),
-    sum(p3) -  length(p3),
-
-   )) 
-
-  }
-
-  # Desigualdades a mantener
-
-  uneq = function(p1, p2, p3){
-    return( 
-      c(
-        (p1<=0) / length(p1) - 0.1 ,
-        (p2<=0) / length(p2) - 0.1 ,
-        (p3<=0) / length(p3) - 0.1 ,
 
 
-      )
-
-
-    )
 
 
   }
 
 
-  total =sum( 1/1e6 *  matriz$Ingresos * matriz$Responde * matriz$Ajuste_no_respuesta / matriz$Prob_seleccion * 1e6  )
-
-
-
-
-
-
-
-
-
-
+ 
 }
 #+ Estimaciones
 

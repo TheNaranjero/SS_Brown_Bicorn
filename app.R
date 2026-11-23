@@ -3,6 +3,11 @@ library(dplyr)
 library(data.table)
 
 source("functions.R")
+source("functions/population.R")
+source("functions/non_response.R")
+source("functions/sample.R")
+source("functions/calibration.R")
+source("functions/estimation.R")
 
 # 1. Interfaz
 
@@ -22,13 +27,12 @@ ui <- navbarPage(
       sliderInput(
         inputId = "cantidad_hogares",
         label = "Cantidad de hogares",
-        min = 100000,
-        max = 1000000,
-        step = 100000,
-        value = 1000000
+        min = 1e5,
+        max = 1e6,
+        step = 5e4,
+        value = 5e5
       ),
-      p("LOS SIGUIENTES NO HACEN NADA:"),
-      numericInput(
+      sliderInput(
         inputId = "habitantes_hogar",
         label = "Cantidad de personas por hogar (promedio)",
         min = 1,
@@ -36,123 +40,51 @@ ui <- navbarPage(
         step = 0.5,
         value = 2.5
       ),
-      numericInput(
+      sliderInput(
         inputId = "cantidad_provincias",
         label = "Cantidad de provincias",
         min = 1,
-        max = 100,
+        max = 25,
         step = 1,
         value = 10
-      )
+      ),
+      radioButtons(
+        inputId = "urbanizacion",
+        label = "Modelo de urbanización",
+        inline = TRUE,
+        choices = c(
+          "Megaciudad dominante" = 1,
+          "Grandes ciudades" = 2,
+          "Ciudades grandes" = 3,
+          "Ciudades medianas" = 4,
+          "Ciudades pequeñas" = 5
+        ),
+        selected = 3
+)
     ),
     br(),
     wellPanel(
       h4("No respuesta"),
-      fluidRow(
-        column(
-          width = 3,
-          radioButtons(
-            inputId = "tasa_no_respuesta",
-            label = "Tasa de no respuesta",
-            choices = c("Muy baja" =  0.05, "Baja" = 0.10, "Moderada" = 0.20, "Alta" = 0.35, "Muy alta" = 0.50, "Extrema" = 0.75)
-          )
-        ),
-        column(
-          width = 3,
-          radioButtons(
-            inputId = "tipo_no_respuesta",
-            label = "Tipo de no respuesta",
-            choices = c("Completamente al azar (MCAR)" = "MCAR")
-          )
+      radioButtons(
+        inputId = "tasa_no_respuesta",
+        label = "Tasa de no respuesta",
+        inline =TRUE,
+        choices = c(
+          "Muy baja" =  0.05, "Baja" = 0.10, "Moderada" = 0.20, "Alta" = 0.35, "Muy alta" = 0.50, "Extrema" = 0.75
         )
-      )
+      ),
+      radioButtons(
+        inputId = "tipo_no_respuesta",
+        label = "Tipo de no respuesta",
+        choices = c("Completamente al azar (MCAR)" = "MCAR")
+      ) 
     ),
     br(),
-    p("LOS SIGUIENTES NO HACEN NADA:"),
-
-    wellPanel(
-      h4("Ciudades"),
-      fluidRow(
-        column(
-          width = 2,
-          numericInput(
-            inputId = "cantidad_megametropolis",
-            label = "Mega-Metropolis",
-            min = 0, max = 5, step = 1, value = 0
-          )
-        ),
-        column(
-          width = 2,
-          numericInput(
-            inputId = "cantidad_metropolis",
-            label = "Metropolis",
-            min = 0, max = 20, step = 1, value = 0
-          )
-        ),
-        column(
-          width = 2,
-          numericInput(
-            inputId = "cantidad_grandes_ciudades",
-            label = "Grandes ciudades",
-            min = 0, max = 100, step = 1, value = 10
-          )
-        ),
-        column(
-          width = 2,
-          numericInput(
-            inputId = "cantidad_ciudades",
-            label = "Ciudades",
-            min = 0, max = 1000, step = 10, value = 10
-          )
-        ),
-        column(
-          width = 2,
-          numericInput(
-            inputId = "cantidad_pueblos",
-            label = "Pueblos",
-            min = 0, max = 10000, step = 100, value = 100
-          )
-        )
-      )
-    ),
-    p("LOS SIGUIENTES NO HACEN NADA:"),
-
-    wellPanel(
-      h4("Geografía"),
-      fluidRow(
-        column(
-          width = 4,
-          radioButtons(
-            inputId = "altura",
-            label = "Altura",
-            choices = c("Plano", "Montaña", "Cordillera")
-          )
-        ),
-        column(
-          width = 4,
-          radioButtons(
-            inputId = "vegetacion",
-            label = "Vegetación",
-            choices = c("Pasto", "Bosques", "Selvático")
-          )
-        ),
-        column(
-          width = 4,
-          radioButtons(
-            inputId = "hidrologia",
-            label = "Hidrologia",
-            choices = c("Rios", "Lagos", "Mesopotamico")
-          )
-        )
-      )
-    ),
+    
     actionButton(
       inputId = "genera_poblacion",
       label = "Generar Poblacion"
     ),
-    br(),
-    br(),
-    br(),
     br()
   ),
 
@@ -227,10 +159,10 @@ server <- function(input, output, session) {
 
     tasa_no_respuesta = as.numeric(input$tasa_no_respuesta)
 
-    poblacion <- generar_poblacion(N = input$cantidad_hogares) |>
-      asigna_provincias(n_provincias = 5) |>
-      crea_variables() |> 
-      asignar_no_respuesta(tipo_no_respuesta = input$tipo_no_respuesta, tasa_no_respuesta = tasa_no_respuesta )
+    poblacion = generar_poblacion(N = input$cantidad_hogares)
+    poblacion |> asigna_provincias(n_provincias = input$cantidad_provincias) 
+    poblacion |> crea_variables(media_habitantes= input$habitantes_hogar  ) 
+    poblacion |> asignar_no_respuesta(tipo_no_respuesta = input$tipo_no_respuesta, tasa_no_respuesta = tasa_no_respuesta )
 
     pob(poblacion)
     print(head(pob()))
@@ -248,7 +180,8 @@ server <- function(input, output, session) {
     muestra <- pob() |>
       asignar_probabilidad_de_seleccion(n = n, tipo = tipo) |>
       seleccionar_muestra(n = n, tipo = tipo) |>
-      ajustar_no_respuesta(tipo = tipo, tipo_ajuste = ajuste_no_respuesta)
+      ajustar_no_respuesta(tipo = tipo, tipo_ajuste = ajuste_no_respuesta) |>
+      calibrar(poblacion = pob(), tipo = tipo)
 
     total <- muestra |> estimar_total(tipo = tipo)
     real  <- pob() |> pull("Ingresos") |> sum()

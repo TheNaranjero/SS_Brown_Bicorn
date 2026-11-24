@@ -8,6 +8,7 @@ source("functions/non_response.R")
 source("functions/sample.R")
 source("functions/calibration.R")
 source("functions/estimation.R")
+source("functions/visual.R")
 
 # 1. Interfaz
 
@@ -262,18 +263,30 @@ server <- function(input, output, session) {
     paste0("Personas por hogar: ", resultados$personas_por_hogar)
   })
   ## Generacion del mapa
-    mapa = eventReactive(input$genera_poblacion, {
+## Generación de los datos del mapa
+mapa <- eventReactive(input$genera_poblacion, {
 
-      genera_mapa(
-        n = 100, n_ciudades = 5, amp = 10,
-      ) |> 
-        genera_provincias(n_provincias=105)
-    })
+  mapa <- genera_mapa(n = 100, semilla = sample(1:100,1))
 
+  mapa <- genera_provincias(
+    mapa,
+    pob(),
+    factor = 3,
+    deformacion = 0.07,
+    umbral_ciudad = 0.01,
+    
+  )
 
-    output$mapa = renderPlot({
-      dibuja_mapa_completo(mapa())
-    })
+  return(mapa)
+
+})
+
+## Dibujar el mapa
+output$mapa <- renderPlot({
+
+  dibuja_mapa_completo(mapa())
+
+})
   
 
 }

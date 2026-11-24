@@ -2,7 +2,7 @@ library(shiny)
 library(dplyr)
 library(data.table)
 
-source("functions.R")
+
 source("functions/population.R")
 source("functions/non_response.R")
 source("functions/sample.R")
@@ -54,10 +54,10 @@ ui <- navbarPage(
         inline = TRUE,
         choices = c(
           "Megaciudad dominante" = 1,
-          "Grandes ciudades" = 2,
-          "Ciudades grandes" = 3,
-          "Ciudades medianas" = 4,
-          "Ciudades pequeñas" = 5
+          "Cuatro grandes ciudades" = 2,
+          "Ciudades medianas" = 3,
+          "Ciudades pequeñas" = 4,
+          "Solo pueblos" = 5
         ),
         selected = 3
 )
@@ -76,7 +76,9 @@ ui <- navbarPage(
       radioButtons(
         inputId = "tipo_no_respuesta",
         label = "Tipo de no respuesta",
-        choices = c("Completamente al azar (MCAR)" = "MCAR")
+        choices = c(
+        "Completamente al azar (MCAR)" = "MCAR", 
+        "Completamente al azar por provincia" ="MCAR provincia")
       ) 
     ),
     br(),
@@ -105,7 +107,11 @@ ui <- navbarPage(
           selectInput(
             inputId = "tipo_muestreo",
             label = "Diseño muestral",
-            choices = c("Muestreo Simple al Azar" = "MSA")
+            choices = c("Muestreo Simple al Azar" = "MSA", 
+            "Estratificado, asignación igual, por provincia" = "EST igual",
+            "Estratificado, asignación proporcional, por provincia" = "EST prop"
+
+          )
           )
         ),
         column(
@@ -121,7 +127,10 @@ ui <- navbarPage(
           selectInput(
             inputId = "tipo_ajuste_no_respuesta",
             label = "Ajustar por no respuesta",
-            choices = c("Completamente al azar (MCAR)" = "MCAR")
+            choices = c( c("Sin ajuste" = "Ninguno" ,
+        "Completamente al azar (MCAR)" = "MCAR", 
+        "Completamente al azar por provincia" ="MCAR provincia")
+      ) 
           )
         )
       )
@@ -141,7 +150,7 @@ ui <- navbarPage(
       
     )
 
-  ),
+  )
 
   
 )
@@ -186,13 +195,27 @@ server <- function(input, output, session) {
     ajuste_no_respuesta <- input$tipo_ajuste_no_respuesta
 
     muestra <- pob() |>
-      asignar_probabilidad_de_seleccion(n = n, tipo = tipo) |>
-      seleccionar_muestra(n = n, tipo = tipo) |>
-      ajustar_no_respuesta(tipo = tipo, tipo_ajuste = ajuste_no_respuesta) |>
+      asignar_probabilidad_de_seleccion(n = n, tipo = tipo) 
+    
+    print(head(muestra))
+
+    muestra <- muestra|>
+      seleccionar_muestra(n = n, tipo = tipo) 
+    print(head(muestra))
+
+    muestra <- muestra|>
+      ajustar_no_respuesta(tipo = tipo, tipo_ajuste = ajuste_no_respuesta) 
+    
+    print(head(muestra))
+    print("Calibrar")
+
+
+    muestra <- muestra|>
       calibrar(poblacion = pob(), tipo = tipo)
+    print(head(muestra))
 
     total <- muestra |> estimar_total(tipo = tipo)
-    real  <- pob() |> pull("Ingresos") |> sum()
+    real  <- pob() |> pull("Ingreso") |> sum()
     respondentes = muestra$Responde |> sum()
     Edad_0_14  = muestra$Edad_0_14  |> sum()
     Edad_15_64  = muestra$Edad_15_64  |> sum()
@@ -201,7 +224,7 @@ server <- function(input, output, session) {
 
 
 
-    resultados$total_millones <- round(total / 1e3, 0)
+    resultados$total_millones <- round(total / 1e6 , 0)
     resultados$error          <- round((total - real) / real * 100, 2)
     resultados$pct_respuesta   <- round((respondentes) / n * 100, 2)
     resultados$personas_por_hogar   <- round((personas_por_hogar), 2)
@@ -211,6 +234,7 @@ server <- function(input, output, session) {
 
     print(head(muestra))
     print(total)
+    print(real)
   })
 
   # Outputs
@@ -235,7 +259,7 @@ server <- function(input, output, session) {
 
   output$resultado_personas_por_hogar <- renderText({
     req(resultados$personas_por_hogar)
-    paste0("Personas porhogar: ", resultados$personas_por_hogar)
+    paste0("Personas por hogar: ", resultados$personas_por_hogar)
   })
   ## Generacion del mapa
     mapa = eventReactive(input$genera_poblacion, {

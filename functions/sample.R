@@ -3,40 +3,73 @@ library(dplyr)
 library(data.table)
 library(survey)
 
-
-asignar_probabilidad_de_seleccion = function(poblacion, n=n, tipo = "MSA"){
-  # Añade una columna a matriz que contiene la probabilidad de seleccion n/N
+asignar_probabilidad_de_seleccion = function(poblacion, n, tipo = "MSA"){
+  # Añade una columna a matriz que contiene la probabilidad de seleccion.
   # inputs:
   # poblacion -- data.table que contiene la población
   # n -- tamaño de la muestra
-  # tipo -- tipo de muestra, por defecto MSA
+  # tipo -- tipo de muestra, "MSA" (por defecto) o "EST igual"
   # output:
-  # data.table con la población más una columna adicional con la probabilidad de seleccion 'prob_seleccion'
+  # data.table con la población más una columna adicional con la probabilidad de seleccion 'Prob_seleccion'
 
-  N = nrow(matriz)
+
+  N = nrow(poblacion)
   
   if(tipo == "MSA"){
-    prob = as.integer(n/N * 1e6)
-    poblacion[, Prob_seleccion :=
-      rep( prob, times=N)
-    ]
-  }
+    poblacion[, Prob_seleccion := n / N ]
+  } 
+  
+  ## Estratificado por provincia
+  if (tipo == "EST igual"){
+    n_provincias = uniqueN(poblacion$Provincia)
+    hogares_provincia = poblacion[, .N, keyby = Provincia]$N   # hogares en cada provincia
 
+    # Si ni > hogares de la provincia, se toma un censo en esa provincia
+    # y se recalcula ni con los hogares que quedan por seleccionar.
+    # Se repite porque al recalcular ni, otra provincia puede pasar a necesitar censo.
+    censo = integer(0)   # provincias con censo
+    repeat{
+      provincias_restantes = setdiff(1:n_provincias, censo)
+      if(length(provincias_restantes) == 0) break
+      ni = round( (n - sum(hogares_provincia[censo])) / length(provincias_restantes) )
+      nuevas = provincias_restantes[ ni > hogares_provincia[provincias_restantes] ]
+      if(length(nuevas) == 0) break
+      censo = c(censo, nuevas)
+    }
+
+    poblacion[, Prob_seleccion := 1 ]
+    poblacion[!(Provincia %in% censo), Prob_seleccion := ni / hogares_provincia[Provincia] ]
+  } 
+
+  if (tipo == "EST prop"){
+    hogares_provincia = poblacion[, .N, keyby = Provincia]$N
+    ni = round( n * hogares_provincia / N )
+    poblacion[, Prob_seleccion := ni[Provincia] / hogares_provincia[Provincia] ]
+  } 
+
+  return(poblacion[])
 }
-
-seleccionar_muestra = function(poblacion, n=n , tipo = "MSA"){
-  #Selecciona una muestra simple al azar.
+seleccionar_muestra = function(poblacion, n, tipo = "MSA"){
+  #Selecciona una muestra simple al azar o estratificada (asiganción igual o proporcional)
   # inputs:
   # poblacion -- poblacion con la poblacion
   # n -- tamaño de la muestra
-  # tipo -- tipo de muestreo a utilizar, por defecto MSA
+  # tipo -- tipo de muestreo a utilizar: "MSA" (por defecto), "EST igual" o "EST prop"
   # output:
   # Un data.table con las mismas columnas que poblacion, pero con n filas.
+  # requiere haber corrido antes asignar_probabilidad_de_seleccion con el mismo tipo
 
-  N = nrow(matriz)
+  N = nrow(poblacion)
   
   if(tipo == "MSA"){
     seleccion = sample.int(N, n)
+  } else if (tipo == "EST igual" | tipo == "EST prop"){
+    if(!("Prob_seleccion" %in% names(poblacion))) stop("Primero hay que asignar Prob_seleccion")
+
+    # en cada provincia se eligen ni = Prob_seleccion * Ni hogares (si Prob_seleccion = 1, es un censo)
+    seleccion = poblacion[, .I[ sample.int(.N, round(Prob_seleccion[1] * .N)) ], by = Provincia ]$V1
+  } else {
+    stop("tipo debe ser 'MSA', 'EST igual' o 'EST prop'")
   }
 
   return(poblacion[seleccion,])

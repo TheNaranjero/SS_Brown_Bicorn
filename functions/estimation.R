@@ -17,7 +17,9 @@ estimar_total = function(muestra, tipo = "MSA"){
 
 
 
-  total =sum( 1/ muestra$Prob_seleccion *  muestra$Ingresos * muestra$Responde * muestra$Ajuste_no_respuesta *muestra$Peso_calibracion  )
+  total =sum( 1/ muestra$Prob_seleccion *  muestra$Ingreso * muestra$Responde * muestra$Ajuste_no_respuesta *muestra$Peso_calibracion  )
+  total =sum( muestra$Ingreso * muestra$Peso_calibracion  )
+
   return(total)
 }
 

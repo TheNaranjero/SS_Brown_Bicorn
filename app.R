@@ -159,10 +159,18 @@ server <- function(input, output, session) {
 
     tasa_no_respuesta = as.numeric(input$tasa_no_respuesta)
 
-    poblacion = generar_poblacion(N = input$cantidad_hogares)
-    poblacion |> asigna_provincias(n_provincias = input$cantidad_provincias) 
-    poblacion |> crea_variables(media_habitantes= input$habitantes_hogar  ) 
-    poblacion |> asignar_no_respuesta(tipo_no_respuesta = input$tipo_no_respuesta, tasa_no_respuesta = tasa_no_respuesta )
+    poblacion = generar_poblacion(
+      N = input$cantidad_hogares,
+      n_provincias = input$cantidad_provincias,
+      tipo_urbano = input$urbanizacion,
+      MEDIA_HABITANTES_POR_HOGAR = input$habitantes_hogar
+    )
+
+
+    poblacion |> asignar_no_respuesta(
+      tipo_no_respuesta = input$tipo_no_respuesta, 
+      tasa_no_respuesta = tasa_no_respuesta 
+    )
 
     pob(poblacion)
     print(head(pob()))

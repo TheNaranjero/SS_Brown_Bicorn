@@ -10,16 +10,7 @@ library(dplyr)
 library(data.table)
 library(survey)
 
-#+ Valores por defecto
-N_POR_DEFECTO = 1000
-
-#Valores por defecto
-MEDIANA_INGRESOS = 2800  # en miles
-MEDIA_INGRESOS = MEDIANA_INGRESOS/ log(2) # calcula la media en base a la mediana de una distribución exponencial. Usa la EPH como fuente
-ERROR_INGRESOS = 0.05    # ruido. Error promedio, porcentual, a aplicarse sobre los ingresos
-MEDIA_HABITANTES_POR_HOGAR = 2.5
-
-generar_poblacion = function(N, n_provincias, tipo_urbano, MEDIA_INGRESOS, MEDIA_HABITANTES_POR_HOGAR, seed = 1234){
+generar_poblacion = function(N, n_provincias, tipo_urbano, MEDIA_INGRESOS = 1000, MEDIA_HABITANTES_POR_HOGAR, seed = 1234){
   # Genera un data.table con un id hogar y variables escondidas.
   # Inputs:
   # N -- tamaño poblacional
@@ -153,6 +144,7 @@ generar_poblacion = function(N, n_provincias, tipo_urbano, MEDIA_INGRESOS, MEDIA
 
   poblacion[, Edad_0_14 := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
   poblacion[, Edad_0_14 := qpois( pnorm( Edad_0_14, mean = mean(Edad_0_14), sd = sd(Edad_0_14)), lambda = (MEDIA_HABITANTES_POR_HOGAR - 1) / 3 )  ]
+  poblacion[, Edad_0_14 := as.integer(Edad_0_14)]
 
     ## Edad 15-64 
 
@@ -160,6 +152,7 @@ generar_poblacion = function(N, n_provincias, tipo_urbano, MEDIA_INGRESOS, MEDIA
 
   poblacion[, Edad_15_64 := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
   poblacion[, Edad_15_64 := qpois( pnorm( Edad_15_64, mean = mean(Edad_15_64), sd = sd(Edad_15_64)), lambda = (MEDIA_HABITANTES_POR_HOGAR - 1) / 3 ) + jefe_adulto ]
+  poblacion[, Edad_15_64 := as.integer(Edad_15_64)]
 
 ## Edad 65-99 
 
@@ -167,10 +160,12 @@ generar_poblacion = function(N, n_provincias, tipo_urbano, MEDIA_INGRESOS, MEDIA
 
   poblacion[, Edad_65_99 := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
   poblacion[, Edad_65_99 := qpois( pnorm( Edad_65_99, mean = mean(Edad_65_99), sd = sd(Edad_65_99)), lambda = (MEDIA_HABITANTES_POR_HOGAR - 1) / 3 ) + 1 - jefe_adulto ]
-# Total habitantes y adultos
+  poblacion[, Edad_65_99 := as.integer(Edad_65_99)]
 
- poblacion[, Total := Edad_0_14 + Edad_15_64 + Edad_65_99]
- poblacion[, Adultos := Edad_15_64 + Edad_65_99]
+  # Total habitantes y adultos
+
+ poblacion[, Total := as.integer( Edad_0_14 + Edad_15_64 + Edad_65_99 )]
+ poblacion[, Adultos :=  as.integer(Edad_15_64 + Edad_65_99)]
 
   ## Sexo
   # la probabilidad se acota entre 0.25 y 0.75

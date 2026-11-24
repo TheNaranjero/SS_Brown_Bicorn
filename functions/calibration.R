@@ -39,3 +39,4 @@ calibrar = function(muestra, poblacion, edad = TRUE, tipo = "MSA"){
   muestra[, Peso_calibracion := 0]
   muestra[es_resp, Peso_calibracion := weights(cal)]
 }
+}

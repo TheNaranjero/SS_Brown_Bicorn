@@ -36,16 +36,36 @@ Añadir:
 
 
 # Sobre las variables ocultas
+Se generan 5 variables independientes, con números del 1 al 1000.
 
 var_hidden_1 : asociada principalmente al percentil del ingreso
 var_hidden_2 : asociada al tipo de hogar según la cantidad de adultos.
-
-
+var_hidden_3 : 
+var_hidden_4 : 
+var_hidden_5 : 
 # Variables manifestas:
+Para cada variable manifesta se definen los valores:
+bi = un valor entre -0.15 y +0.15
+aux = b1 * var_hidden_1 + .... + b2 *var_hidden_5 
 
-Ingresos: qexp( var_hidden_1, rate = 1 / MEDIA_INGRESOS  )
+## Ingreso
+x = abs(aux + var_hidden_1)
+max = max(x) + 1
+Ingresos: qexp( x / max , rate = 1 / 1e3  )
 
-en base a var_hidden_2 se definen el tipo de hogar, representado por la cantidad de niños, adultos jovenes, adultos mayores y jubilados.
+## Cantidad de habitantes del hogar
+x = abs(aux + var_hidden_2)
+max = max(x) + 1
+Total: 1 + qpois( x / max , media = MEDIA_HABITANTES_HOGAR  )
+
+## Cantidad por edad
+x = abs(aux + var_hidden_3)
+max = max(x) + 1
+
+Edad_0_14: qpois( x/ max,  )
+Edad_15_64:
+Edad_65_99:
+
 
 # Constantes
 

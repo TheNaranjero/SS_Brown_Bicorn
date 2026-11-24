@@ -19,171 +19,206 @@ MEDIA_INGRESOS = MEDIANA_INGRESOS/ log(2) # calcula la media en base a la median
 ERROR_INGRESOS = 0.05    # ruido. Error promedio, porcentual, a aplicarse sobre los ingresos
 MEDIA_HABITANTES_POR_HOGAR = 2.5
 
-generar_poblacion = function(N){
+generar_poblacion = function(N, n_provincias, tipo_urbano, MEDIA_INGRESOS, MEDIA_HABITANTES_POR_HOGAR, seed = 1234){
   # Genera un data.table con un id hogar y variables escondidas.
   # Inputs:
   # N -- tamaño poblacional
+  # seed -- semilla para reproducibilidad
   # Outputs:
   # Matrix Nx3 con las variables id_hogar y las var_hidden 
 
+  set.seed(seed)
   
-
-  output = data.table(
+  poblacion = data.table(
     id_hogar = seq_len(N),
-    var_hidden_1 = sample.int(1e6-1,size = N, replace=TRUE), # números del 1 al 999_999, asociado al ingreso
-    var_hidden_2 = sample.int(1e6-1,size = N, replace=TRUE) # asociado al tipo de hogar/cantidad de habitantes
+    var_hidden_1 = sample.int(1e3-1,size = N, replace=TRUE), 
+    var_hidden_2 = sample.int(1e3-1,size = N, replace=TRUE), 
+    var_hidden_3 = sample.int(1e3-1,size = N, replace=TRUE), 
+    var_hidden_4 = sample.int(1e3-1,size = N, replace=TRUE), 
+    var_hidden_5 = sample.int(1e3-1,size = N, replace=TRUE)
   )
-  return(output)
 
-}
-
-asigna_provincias <- function(poblacion, n_provincias) {
-  # Asigna cada hogar a una provincia, 
-  # la proporción de hogares que se lleva una provincia se determina con uan uniforme
-
-  # Proporcion de hogares aleatorias
-  proporciones <- runif(n_provincias, min=0.01)
-  proporciones <- proporciones / sum(proporciones)
-
-  # Asignar provincia a cada hogar
-  poblacion[, provincia := sample.int(
-    n_provincias,
-    size = .N,                  # .N  = nrow(poblacion)
-    replace = TRUE,
-    prob = proporciones
-  )]
-}
-
-efectos = function(poblacion){
-  # Añade un efecto 'provincia': atrae las var_hidden hacia un centro de cada provincia.
-  # Modifica `poblacion` por referencia; las var_hidden quedan como integer.
-
-  provincias   = unique(poblacion$provincia)
-  n_provincias = length(provincias)
-  var_hidden   = c("var_hidden_1", "var_hidden_2")
-
-  prob_atraccion = runif(n_provincias, min = 0.3, max = 0.7)
-  
-  # Elige un valor central de cada var_hidden para cada provincia
-  
-  centro = sapply(var_hidden, function(var){
-    runif(n_provincias, 
-      min = min( provincias[[var]]), 
-      max = max( provincias[[var]]))
-  })
-  
-  # idx es el indice de cada provincia 
-  idx = match( poblacion$provincia, provincias )
-  a_i = prob_atraccion[idx]
-
-  # Cada provincia tiene una probabilidad de atraer (promediar) 
-  # sus valores de var_hidden con los del hogar
-  random = runif(nrow(poblacion))
-  for (var in var_hidden){
-    poblacion[, (var) := as.integer(
-      round(
-        get(var) + (random < a_i) * 0.5 * (centro[idx, var] - get(var)) 
-      )
-    )]
+  if(tipo_urbano == 1){
+    # 90% de la población en una única ciudad, el resto en pequeños pueblos con 0.1% de la poblacion
+    prob = 1:101
+    prob[1] = 0.9
+    prob[2:101] = 0.001
+  }
+  else if(tipo_urbano == 2){
+    # 80% de la población en 4 ciudades grandes,
+    # 15% en 5 ciudades medianas
+    # el resto en pequeños pueblos con 0.1% de la poblacion
+    prob = 1:61
+    prob[1:4] = runif(4, min=0.15, max = 0.25)
+    prob[(4+1):(4+5)] = runif(5, min=0.02, max = 0.04)
+    prob[(9+1):61] = 0.001
+    prob = prob / sum(prob)  #normaliza
+    
+  }
+  else if(tipo_urbano == 3){
+      # 70% de la población en ciudades medianas
+      # 20% en ciudades pequeñas  
+      # 10% en pequeños pueblos con 0.1% de la poblacion
+      prob = 1:151
+      prob[1:25] = runif(25, min=0.02, max = 0.04)
+      prob[(25+1):(25+25)] = runif(25, min=0.005, max = 0.015)
+      prob[51:151] = 0.001
+      prob = prob / sum(prob)  #normaliza
+      
+  }
+  else if(tipo_urbano == 4){
+    # 30% de la población en ciudades medianas
+    # 60% en ciudades pequeñas  
+    # el resto en pequeños pueblos con 0.1% de la poblacion
+    prob = 1:170
+    prob[1:10] = runif(10, min=0.02, max = 0.04)
+    prob[(10+1):(10+60)] = runif(60, min=0.005, max = 0.015)
+    prob[(70+1):(70+100)] = 0.001
+    prob = prob / sum(prob)  #normaliza
+      
+  }
+  else if(tipo_urbano == 5){
+    # 100% en pequeños pueblos con 0.1% de la poblacion
+    # 1000 pueblos, cada uno con 100 a 1000 hogares
+    prob = rep(0.001, times = 1000)  #normaliza
+      
+  }
+  else{
+    stop("tipo_urbano debe ser 1, 2, 3, 4 o 5")
   }
 
+  n_ciudades = length(prob)
+
+
+  poblacion[, Ciudad:= sample.int(n_ciudades, size = N, replace = TRUE, prob=prob) ]
+
+  ## al menos 10 hogares por ciudad
+  ## toma los primeros 10*n_ciudades elementos y asigna 10 a cada ciudad
+  poblacion[1:(10*n_ciudades), Ciudad:=rep(1:n_ciudades, each=10)]
+
+
+  # Asigna provincias
+
+  # Asigna cada ciudad a una provincia, para garantizar que todas las provincias tengan al menos 1 ciudad
+  # se asigna primero una ciudad a cada provincia y el resto al azar, luego se mezcla
   
+  provincia_ciudad = sample( c(1:n_provincias, sample.int(n_provincias, n_ciudades - n_provincias, replace = TRUE)) )
+
+
+  # Asignar provincia a cada hogar
+  poblacion[, Provincia :=   provincia_ciudad[Ciudad]]
+
+
+  # Efecto Provincia
+
+  for(var in c("var_hidden_1", "var_hidden_2", "var_hidden_3", "var_hidden_4","var_hidden_5")){
+    efecto_provincia = sample(c(-200, -150, -100, -50, 0, 50, 100, 150, 200), n_provincias,replace=TRUE)
+    efecto_ciudad = sample(c(-100, -50, -25, 0, 0, 0, 25, 50, 100), n_ciudades,replace=TRUE)
+    poblacion[, (var) :=   get(var) + efecto_provincia[Provincia] + efecto_ciudad[Ciudad]]
 }
-
-## Crea variables
-
-
-
-crea_variables = function(poblacion){
-  # Genera variables manifestas a través de las variables escondidas
-  # input un data.table donde al menos una columna tenga el nombre "var_hidden_1"
-  # output misma data.table, pero con una columna adicional llamada "ingresos"
-  # generación de la variable 'ingresos': se utiliza la distribución exponencial, partiendo de los ingresos medianos por defecto
-  # elimina las variables var_hidden_1
-
+  #CREA VARIABLES
 
   N = nrow(poblacion)
 
   
-  # funciones para cada variable
-  var_ingresos = function(v1, v2){
-    # utiliza var_hidden_1 y el ruido para calcular el ingreso de la familia
-    # input v1: variable escondida a utilizar
-    b2 = sample(c(-0.15,  -0.1, -0.05,0, 0.5, 0.1, 0.15),1)
-    prop = (v1+b2*v2) / 1e6
-    prop = pmax(pmin(prop, 0.9999), 0.0001)
-    rate = 1/MEDIA_INGRESOS
-    size = length(v1)
-    ruido = runif( n = size, min = 1 - ERROR_INGRESOS  ,  max = 1+ERROR_INGRESOS) #error porcentual a la variable ingresos
+  #Ingreso
+  # Combinacion Lineal de las var_hidden --> quantiles normales --> gamma --> añade ruido +- 5%
+  # (la combinacion lineal se estandariza con su media y desvio empiricos)
+  # gamma con shape = 4: media = MEDIA_INGRESOS, y pocos valores cercanos a cero
 
-    return( as.integer( 
-      qexp(prop, rate = rate) * ruido
-     ) 
-    )
-  }
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
 
+  poblacion[, Ingreso := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Ingreso := qgamma( pnorm( Ingreso, mean = mean(Ingreso), sd = sd(Ingreso)), shape = 4, rate = 4/MEDIA_INGRESOS )* runif(.N, min=0.95, max = 1.05)  ]
+  poblacion[, Ingreso := as.numeric(Ingreso)  ]
+  # EDADES
+  poblacion[ , Edad_0_14  := 0 ]
+  poblacion[ , Edad_15_64 := 0 ]
+  poblacion[ , Edad_65_99 := 0 ]
+
+  # Jefe de hogar adulto (15 a 64 años) o mayor (65 a 99 años)
+  # Combinacion Lineal de las var_hidden --> quantiles normales --> proporcion de una bernoulli 
+
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
+
+  poblacion[, jefe_adulto := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, jefe_adulto := rbinom( n=.N, size=1, prob= pnorm( jefe_adulto, mean = mean(jefe_adulto), sd = sd(jefe_adulto)) ) ]
+
+  ## Edad 0-14 
+  # Combinacion Lineal de las var_hidden --> quantiles normales --> poisson
+  # media de la poisson --> (MEDIA_HABITANTES_POR_HOGAR - 1) / 3
+  # (el -1 es por el jefe de hogar, que se suma aparte, asi el promedio del hogar es MEDIA_HABITANTES_POR_HOGAR)
   
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
 
-var_grupo_edad <- function(v1, v2, 
-  media_habitantes=2.5) {
-  # Genera tipo de hogar y cantidad de habitantes por grupo de edad
-  # Inputs:
-  #   v1  -- variable escondida del ingreso (uniforme, entero entre 1 y 1e6); se usa para asociar tipo e ingreso
-  #   v2  -- variable escondida del tipo de hogar (uniforme, entero entre 1 y 1e6)
-  #   media_habitantes -- esperanza del tamaño del hogar (1 a 10)
-  #   TH  -- tabla de tipos (columnas: ninos, adultos, mayores, jefe_adulto), ordenada como anillo
-  #   amp -- ancho mínimo de cada tipo, en millonésimas del anillo
-  # Output: lista (tipo, ninos 0-14, adultos 15-64, mayores 65-99)
+  poblacion[, Edad_0_14 := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Edad_0_14 := qpois( pnorm( Edad_0_14, mean = mean(Edad_0_14), sd = sd(Edad_0_14)), lambda = (MEDIA_HABITANTES_POR_HOGAR - 1) / 3 )  ]
 
-  N <- length(v1)
-  TH = readr::read_csv("TIPO_HOGAR.csv", show_col_types = FALSE)
-  K <- nrow(TH)
+    ## Edad 15-64 
 
-  # perfiles normalizados por tipo
-  tot <- TH$ninos + TH$adultos + TH$mayores
-  p_n <- TH$ninos   / tot
-  p_a <- TH$adultos / tot
-  p_m <- TH$mayores / tot
-  p_jefe_adulto <- TH$jefe_adulto            # P(jefe adulto) por tipo
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
 
-  # cortes aleatorios ordenados
-  cortes <- sort( sample.int(99, K - 1) ) /100
+  poblacion[, Edad_15_64 := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Edad_15_64 := qpois( pnorm( Edad_15_64, mean = mean(Edad_15_64), sd = sd(Edad_15_64)), lambda = (MEDIA_HABITANTES_POR_HOGAR - 1) / 3 ) + jefe_adulto ]
 
-  # posición en el anillo: v1 mueve el tipo, da la vuelta con %% 1
-  b1   = sample(c(-0.15, -0.10, -0.05, 0.05, 0.10, 0.15), 1)
-  x    = ((v2 + b1 * v1)/1e6) %% 1
-  x    = x + (x<0)  #si es negativo, da la vuelta -0.10 -->  -0.10 + 1 = 0.90
-  tipo <- findInterval(x, c(0, cortes))      # 1..K
+## Edad 65-99 
 
-  # habitantes sin contar al jefe 
-  # (el if_else suma +0.1  cuando media_habitantes = 1, para añadir ruido )
-  lam <- media_habitantes - 1 + if_else(media_habitantes == 1, 0.1 , 0)
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
 
-  # jefe: un único sorteo por hogar, puede ser adulto o mayor
-  jefe_adulto = runif(N) < p_jefe_adulto[tipo]
+  poblacion[, Edad_65_99 := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Edad_65_99 := qpois( pnorm( Edad_65_99, mean = mean(Edad_65_99), sd = sd(Edad_65_99)), lambda = (MEDIA_HABITANTES_POR_HOGAR - 1) / 3 ) + 1 - jefe_adulto ]
+# Total habitantes y adultos
 
-  ninos   = rpois(N, lam * p_n[tipo])
-  adultos = rpois(N, lam * p_a[tipo]) + jefe_adulto
-  mayores = rpois(N, lam * p_m[tipo]) + !jefe_adulto
+ poblacion[, Total := Edad_0_14 + Edad_15_64 + Edad_65_99]
+ poblacion[, Adultos := Edad_15_64 + Edad_65_99]
 
-  return( list(ninos, adultos, mayores)  )      # el orden debe coincidir con := 
-}
+  ## Sexo
+  # la probabilidad se acota entre 0.25 y 0.75
 
-  # Crea las variables
-  poblacion[, Ingresos :=
-    var_ingresos(v1=var_hidden_1, v2=var_hidden_2)
-  ]
- 
-  poblacion[,  
-    c("Edad_0_14", "Edad_15_64", "Edad_65_99") :=
-     var_grupo_edad(
-      v1 = var_hidden_1, 
-      v2 = var_hidden_2,
-      media_habitantes = 2.5)]
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
+
+  poblacion[, Sexo_femenino := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Sexo_femenino := rbinom( n= .N, 
+    size= Total, 
+    prob= pmin( pmax( pnorm( Sexo_femenino, mean = mean(Sexo_femenino), sd = sd(Sexo_femenino)), 0.25), 0.75) )
+   ]
+  poblacion[, Sexo_masculino :=  Total - Sexo_femenino ]
+
+  ## Educacion (solo adultos)
+
+  # Primario
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
+
+  poblacion[, Educacion_primario := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Educacion_primario := rbinom( n= .N, 
+    size= Adultos, 
+    prob= pnorm( Educacion_primario, mean = mean(Educacion_primario), sd = sd(Educacion_primario)) )
+   ]
+  
+  # Secundario
+
+  b = runif( 5, min= -1, max= 1 ) # coeficientes
+
+  poblacion[, Educacion_secundario := b[1]*var_hidden_1 + b[2]*var_hidden_2 + b[3]*var_hidden_3 + b[4]*var_hidden_4 + b[5]*var_hidden_5  ]
+  poblacion[, Educacion_secundario := rbinom( n= .N, 
+    size= Adultos - Educacion_primario, 
+    prob= pnorm( Educacion_secundario, mean = mean(Educacion_secundario), sd = sd(Educacion_secundario)) )
+   ]
+  
+  # Terciario
+
+  poblacion[, Educacion_terciario := Adultos - Educacion_primario - Educacion_secundario ]
+
+
+
+
+
 
 
   #elimina las variables escondidas
 
-  matriz[,c("var_hidden_1", "var_hidden_2") := NULL]
+  poblacion[,c("var_hidden_1", "var_hidden_2", "var_hidden_3", "var_hidden_4", "var_hidden_5", "jefe_adulto", "Adultos") := NULL]
+
+  return(poblacion[])
 
 }

@@ -41,7 +41,7 @@ Añadir:
 - Añadido Sexo y Educacion (primario, secundario, terciario)
 - No respuesta: añadir MAR y ajuste MAR
 - Variables auxiliares: Permitir elegir que variable auxiliar usar: Edad, Sexo, Educacion y a que nivel Pais, Provincia, Ciudad
-- 
+- Mapasa mejorados
 
 
 

@@ -56,7 +56,7 @@ ajustar_no_respuesta = function(data, tipo = "MSA", tipo_ajuste = 'MCAR'){
     stop("tipo_ajuste debe ser 'Ninguno', 'MCAR' o 'MCAR provincia'")
   }
 
-  if(any(is.infinite(data$Ajuste_no_respuesta))) stop("No hay respondentes (en alguna provincia)")
+  if(any( is.infinite(data$Ajuste_no_respuesta))) stop("No hay respondentes (en alguna provincia)")
 
   return(data[])
 }

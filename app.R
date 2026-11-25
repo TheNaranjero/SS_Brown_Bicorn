@@ -108,19 +108,21 @@ ui <- navbarPage(
           selectInput(
             inputId = "tipo_muestreo",
             label = "Diseño muestral",
-            choices = c("Muestreo Simple al Azar" = "MSA", 
-            "Estratificado, asignación igual, por provincia" = "EST igual",
-            "Estratificado, asignación proporcional, por provincia" = "EST prop"
-
-          )
+            choices = c(
+              "Muestreo Simple al Azar" = "MSA", 
+              "Estratificado, asignación igual, por provincia" = "EST igual provincia",
+              "Estratificado, asignación proporcional, por provincia" = "EST prop provincia",
+              "Estratificado, asignación igual, por ciudad" = "EST igual ciudad",
+              "Estratificado, asignación proporcional, por ciudad" = "EST prop ciudad"
+            )
           )
         ),
         column(
           width = 3,
-          numericInput(
+          sliderInput(
             inputId = "tamano_muestral",
             label = "Tamaño muestral",
-            min = 10, max = 1000000, step = 10, value = 1000
+            min = 100, max = 10000, step = 100, value = 1000
           )
         ),
         column(
@@ -128,11 +130,35 @@ ui <- navbarPage(
           selectInput(
             inputId = "tipo_ajuste_no_respuesta",
             label = "Ajustar por no respuesta",
-            choices = c( c("Sin ajuste" = "Ninguno" ,
-        "Completamente al azar (MCAR)" = "MCAR", 
-        "Completamente al azar por provincia" ="MCAR provincia")
-      ) 
-          )
+            choices = c( 
+              "Sin ajuste" = "Ninguno" ,
+              "Completamente al azar (MCAR)" = "MCAR", 
+              "Completamente al azar por provincia" ="MCAR provincia"
+            )
+          ) 
+        ),
+        column(
+          width = 3,
+          checkboxGroupInput(
+            inputId = "informacion_auxiliar",
+            label = "Informacion auxiliar para la calibración",
+            choices = c(  
+              "Edad" ,
+              "Sexo", 
+              "Educacion"
+            )
+          ) 
+        ),
+        column(
+          width = 3,
+          selectInput(
+            inputId = "informacion_auxiliar_nivel",
+            label = "Nivel de la Informacion auxiliar",
+            choices = c(  
+              "Pais" = "pais",
+              "Provincia" = "provincia"
+            )
+          ) 
         )
       )
     ),
@@ -211,11 +237,22 @@ server <- function(input, output, session) {
     print("Calibrar")
 
 
-    muestra <- muestra|>
-      calibrar(poblacion = pob(), tipo = tipo)
-    print(head(muestra))
+    muestra <- muestra |>
+      calibrar(
+        poblacion = pob(),
+        tipo      = tipo,
+        nivel     = input$informacion_auxiliar_nivel,
+        edad      = "Edad"      %in% input$informacion_auxiliar,
+        sexo      = "Sexo"      %in% input$informacion_auxiliar,
+        educacion = "Educacion" %in% input$informacion_auxiliar
+      )
 
-    total <- muestra |> estimar_total(tipo = tipo)
+    print("Estimar")
+
+    total <- muestra |> 
+      estimar_total(
+        tipo      = tipo
+      )
     real  <- pob() |> pull("Ingreso") |> sum()
     respondentes = muestra$Responde |> sum()
     Edad_0_14  = muestra$Edad_0_14  |> sum()
